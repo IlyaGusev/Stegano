@@ -13,6 +13,28 @@
 %% API
 -export([main/0]).
 
+cipher(InputImgFilename, OutputImgFilename, TextFilename, BitsUsedCount) ->
+  ?assert(BitsUsedCount =< 8 ),
+  ?assert(8 rem BitsUsedCount =:= 0),
+  {ok, Text} = file:read_file(TextFilename),
+  [Info, Width, Height, PixelBytes] = read_bmp(InputImgFilename),
+  TextSize = bit_size(Text),
+  FlaggedText = <<TextSize:32, Text/bitstring>>,
+  NewPixelBytes = insert_bits(BitsUsedCount, FlaggedText, PixelBytes),
+  write_bmp(OutputImgFilename, Info, NewPixelBytes).
+
+decipher(ImgFilename, TextFilename, BitsUsedCount) ->
+  ?assert(BitsUsedCount =< 8 ),
+  ?assert(8 rem BitsUsedCount =:= 0),
+  {ok, File} = file:open(TextFilename, [write]),
+  [_, _, _, Pixels] = read_bmp(ImgFilename),
+  BitsList = get_bits(BitsUsedCount, Pixels),
+  Bin = list_to_bits(BitsList, BitsUsedCount),
+  <<Size:32, _/binary>> = Bin,
+  <<_:32, Text:Size/bitstring, _/binary>> = Bin,
+  file:write(File, Text),
+  Text.
+
 read_bmp(FileName) ->
   {ok, Bin} = file:read_file(FileName),
   <<_:8, _:8, _:32/little, 0:16, 0:16, Offset:32/little, _:32/little,
@@ -21,8 +43,8 @@ read_bmp(FileName) ->
   ?assert(BitCount =:= 24),
   ?assert(Compression =:= 0),
   BitOffset = Offset * 8,
-  <<Info:BitOffset/bitstring, PixelsBin/binary>> = Bin,
-  [Info, Width, Height, read_pixels(PixelsBin, 0, Width, Height)].
+  <<Info:BitOffset/bitstring, PixelsBin/bitstring>> = Bin,
+  [Info, Width, Height, PixelsBin].
 
 write_bmp(FileName, Info, PixelBytes) ->
   {ok, File} = file:open(FileName,[write]),
@@ -30,58 +52,29 @@ write_bmp(FileName, Info, PixelBytes) ->
   Bin = list_to_binary(PixelBytes),
   file:write(File, Bin).
 
-read_pixels(PixelsBin, Index, Width, Height) when Index < Width * Height ->
-  <<B:8, G:8, R:8, NextPixelsBin/binary>> = PixelsBin,
-  [[B, G, R] |  read_pixels(NextPixelsBin, Index + 1, Width, Height)];
-read_pixels(_, _, _, _) -> [].
-
-insert_bits(BitsUsedCount, Text, Pixels) when bit_size(Text) >= BitsUsedCount * 3 ->
-  <<BlueBits:BitsUsedCount, GreenBits: BitsUsedCount, RedBits: BitsUsedCount, CurrentText/bitstring>> = <<Text/bitstring>>,
-  [FirstPixel | OtherPixels] = Pixels,
-  [B|[G|[R]]] = FirstPixel,
+insert_bits(BitsUsedCount, Text, PixelBytes) when bit_size(Text) >= BitsUsedCount ->
+  <<NewBits:BitsUsedCount, CurrentText/bitstring>> = <<Text/bitstring>>,
+  <<FirstByte:8, OtherBytes/binary>> = PixelBytes,
   BitsBaseCount = 8 - BitsUsedCount,
-  <<BBase:BitsBaseCount, _:BitsUsedCount>> = <<B:8>>,
-  <<GBase:BitsBaseCount, _:BitsUsedCount>> = <<G:8>>,
-  <<RBase:BitsBaseCount, _:BitsUsedCount>> = <<R:8>>,
-  <<BNew:8/integer>> = <<BBase:BitsBaseCount, BlueBits:BitsUsedCount>>,
-  <<GNew:8/integer>> = <<GBase:BitsBaseCount, GreenBits:BitsUsedCount>>,
-  <<RNew:8/integer>> = <<RBase:BitsBaseCount, RedBits:BitsUsedCount>>,
-  [[BNew, GNew, RNew] | insert_bits(BitsUsedCount, CurrentText, OtherPixels)];
-insert_bits(_, _, Pixels) -> Pixels.
+  <<Base:BitsBaseCount, _:BitsUsedCount>> = <<FirstByte:8>>,
+  <<NewByte:8/integer>> = <<Base:BitsBaseCount, NewBits:BitsUsedCount>>,
+  [NewByte | insert_bits(BitsUsedCount, CurrentText, OtherBytes)];
+insert_bits(_, _, PixelBytes) -> PixelBytes.
 
-cipher(InputImgFilename, OutputImgFilename, Text, BitsUsedCount) ->
-  [Info, _, _, Pixels] = read_bmp(InputImgFilename),
-  TextSize = bit_size(Text),
-  FlaggedText = <<TextSize:8, Text/bitstring>>,
-  NewPixels = insert_bits(BitsUsedCount, FlaggedText, Pixels),
-  write_bmp(OutputImgFilename, Info, lists:flatten(NewPixels)).
+get_bits(BitsUsedCount, PixelBytes) when bit_size(PixelBytes) > 0 ->
+  <<FirstByte:8, OtherPixels/binary>> = PixelBytes,
+  BitsBaseCount = 8 - BitsUsedCount,
+  <<_:BitsBaseCount, Bits:BitsUsedCount>> = <<FirstByte:8>>,
+  [Bits | get_bits(BitsUsedCount, OtherPixels)];
+get_bits(_, _) -> [].
 
-triples_to_bin(T) ->
-  triples_to_bin(T, <<>>).
-
-triples_to_bin([{X,Y,Z} | T], Acc) ->
-  triples_to_bin(T, <<Acc/bitstring, X:2, Y:2, Z:2>>);
-triples_to_bin([], Acc) ->
+list_to_bits(T, BitsUsedCount) ->
+  list_to_bits(T, <<>>, BitsUsedCount).
+list_to_bits([X | T], Acc, BitsUsedCount) ->
+  list_to_bits(T, <<Acc/bitstring, X:BitsUsedCount>>, BitsUsedCount);
+list_to_bits([], Acc, _) ->
   Acc.
 
-get_bits(BitsUsedCount, Pixels, Index, Width, Height) when Index < Width * Height ->
-  [FirstPixel | OtherPixels] = Pixels,
-  [B|[G|[R]]] = FirstPixel,
-  BitsBaseCount = 8 - BitsUsedCount,
-  <<_:BitsBaseCount, BUsed:BitsUsedCount>> = <<B:8>>,
-  <<_:BitsBaseCount, GUsed:BitsUsedCount>> = <<G:8>>,
-  <<_:BitsBaseCount, RUsed:BitsUsedCount>> = <<R:8>>,
-  [{BUsed, GUsed, RUsed} | get_bits(BitsUsedCount, OtherPixels, Index + 1, Width, Height)];
-get_bits(_, _, _, _, _) -> [].
-
-decipher(ImgFilename) ->
-  [_, Width, Height, Pixels] = read_bmp(ImgFilename),
-  Triples = get_bits(2, Pixels, 0, Width, Height),
-  Bin = triples_to_bin(Triples),
-  <<Size:8, _/binary>> = Bin,
-  <<_:8, Text:Size/bitstring, _/binary>> = Bin,
-  Text.
-
 main() ->
-  cipher("lenna.bmp", "lenna_c.bmp", <<"Привет, мир!"/utf8>>, 2),
-  decipher("lenna_c.bmp").
+  cipher("lenna.bmp", "lenna_c.bmp", "text.txt", 2),
+  decipher("lenna_c.bmp", "text1.txt", 2).
