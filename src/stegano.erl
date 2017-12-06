@@ -2,29 +2,31 @@
 -author("Ilya Gusev").
 -include_lib("stdlib/include/assert.hrl").
 
--export([cipher/4, decipher/2]).
+-export([cipher/3, cipher/4, decipher/2]).
 
-cipher(InputImgFilename, OutputImgFilename, Text, BitsUsedCount) ->
+cipher(InputImgFilename, Text, BitsUsedCount) ->
   ?assert(BitsUsedCount =< 8 ),
   ?assert(8 rem BitsUsedCount =:= 0),
-%%  {ok, Text} = file:read_file(TextFilename),
   [Info, _, _, PixelBytes] = read_bmp(InputImgFilename),
   TextSize = bit_size(Text),
   FlaggedText = <<TextSize:32, Text/bitstring>>,
   NewPixelBytes = insert_bits(BitsUsedCount, FlaggedText, PixelBytes),
-  Bin = write_bmp(OutputImgFilename, Info, NewPixelBytes),
-  Bin.
+  Bin = list_to_binary(NewPixelBytes),
+  <<Info/bitstring, Bin/bitstring>>.
+
+cipher(InputImgFilename, Text, BitsUsedCount, OutputImgFilename) ->
+  {ok, File} = file:open(OutputImgFilename, [write]),
+  Content= cipher(InputImgFilename, Text, BitsUsedCount),
+  file:write(File, Content).
 
 decipher(ImgFilename, BitsUsedCount) ->
   ?assert(BitsUsedCount =< 8 ),
   ?assert(8 rem BitsUsedCount =:= 0),
-%%  {ok, File} = file:open(TextFilename, [write]),
   [_, _, _, Pixels] = read_bmp(ImgFilename),
   BitsList = get_bits(BitsUsedCount, Pixels),
   Bin = list_to_bits(BitsList, BitsUsedCount),
   <<Size:32, _/binary>> = Bin,
   <<_:32, Text:Size/bitstring, _/binary>> = Bin,
-%%  file:write(File, Text),
   Text.
 
 read_bmp(FileName) ->
@@ -37,13 +39,6 @@ read_bmp(FileName) ->
   BitOffset = Offset * 8,
   <<Info:BitOffset/bitstring, PixelsBin/bitstring>> = Bin,
   [Info, Width, Height, PixelsBin].
-
-write_bmp(FileName, Info, PixelBytes) ->
-  {ok, File} = file:open(FileName,[write]),
-  file:write(File, Info),
-  Bin = list_to_binary(PixelBytes),
-  file:write(File, Bin),
-  <<Info/bitstring, Bin/bitstring>>.
 
 insert_bits(BitsUsedCount, Text, PixelBytes) when bit_size(Text) >= BitsUsedCount ->
   <<NewBits:BitsUsedCount, CurrentText/bitstring>> = <<Text/bitstring>>,
