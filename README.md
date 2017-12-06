@@ -3,7 +3,6 @@
 git clone https://github.com/IlyaGusev/stegano
 cd stegano
 wget https://erlang.mk/erlang.mk
-make -f erlang.mk bootstrap-rel
 ```
   
 #### Run ####
