@@ -1,3 +1,5 @@
+##ДЗ-4, вариант 2: 10 баллов##
+
 #### Install ####
 ```
 git clone https://github.com/IlyaGusev/stegano
