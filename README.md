@@ -1,8 +1,9 @@
-##ДЗ-4, вариант 2: 10 баллов##
+#Task 4.2 - stegano#
+*(10 баллов)*
 
 #### Install ####
 ```
-git clone https://github.com/IlyaGusev/stegano
+git clone https://github.com/IlyaGusev/proglang
 cd stegano
 wget https://erlang.mk/erlang.mk
 ```
