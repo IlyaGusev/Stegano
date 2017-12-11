@@ -15,7 +15,7 @@ handle(<<"GET">>, Req) ->
 		{undefined, _} -> cowboy_req:reply(400, #{}, <<"Missing 'text' parameter.">>, Req);
 		{_, undefined} -> cowboy_req:reply(400, #{}, <<"Missing 'imagename' parameter.">>, Req);
 		{_, _} ->
-			Bin = stegano:cipher(ImageName, Text, 8),
+			Bin = stegano:cipher(ImageName, Text, 2),
 			Req1 = cowboy_req:set_resp_header(<<"content-disposition">>, "attachment; filename=ciphered.bmp", Req),
 			Req2 = cowboy_req:set_resp_body(Bin, Req1),
 			cowboy_req:reply(200, #{
