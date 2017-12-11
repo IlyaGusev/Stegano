@@ -1,4 +1,4 @@
-#Task 4.2 - stegano#
+# Task 4.2 - stegano #
 *(10 баллов)*
 
 #### Install ####
