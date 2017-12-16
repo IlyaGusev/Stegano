@@ -67,6 +67,24 @@ export class Game {
         }
     }
 
+    DisconnectedPlayer(playerId: string) {
+        let disconnectedPlayer = undefined;
+        for (let player of this.players) {
+            if (player.id == playerId) {
+                disconnectedPlayer = player;
+            }
+        }
+        if (disconnectedPlayer != undefined) {
+            let index = this.players.indexOf(disconnectedPlayer, 0);
+            if (index > -1) {
+                this.players.splice(index, 1);
+            }
+        }
+        for (let player of this.players) {
+            player.Write(JSON.stringify(new Message(this.id, playerId, "disconnected")));
+        }
+    }
+
     Terminate() {
         for (let player of this.players) {
             player.Write(JSON.stringify(new Message(this.id, player.id, "close")));

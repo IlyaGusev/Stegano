@@ -38,7 +38,11 @@ wss.on('connection', (ws: any) => {
 
     ws.on('close', () => {
         console.log('diconnected: %s', player.id);
-        manager.CloseGame(game.id);
+        if (game.players.length >= 2) {
+            game.DisconnectedPlayer(player.id);
+        } else {
+            manager.CloseGame(game.id);
+        }
     });
 
     ws.isAlive = true;

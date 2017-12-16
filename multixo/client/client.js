@@ -1,38 +1,4 @@
 window.onload = function() {
-    class Connection {
-        constructor() {
-            this.queue = []
-            this.listener = null
-            this.ws = new WebSocket('ws://localhost:8999');
-            this.ws.onmessage = this.onMessage.bind(this);
-            this.ws.onerror = this.onError.bind(this);
-            this.ws.onopen = this.onOpen.bind(this);
-        }
-
-        onMessage(message) {
-            const json = JSON.parse(message.data)
-            console.log(json)
-            if (this.listener !== null) {
-                this.listener(json)
-            }
-        };
-
-        onOpen() {
-            this.queue.forEach(item => this.write(item))
-        };
-
-        onError() {
-        }
-
-        write(data) {
-            if (this.ws.readyState === this.ws.CONNECTING) {
-                this.queue.push(data)
-            } else {
-                this.ws.send(JSON.stringify(data))
-            }
-        }
-    }
-
     var States = {
         Offline: -1,
         Waiting: 0,
@@ -40,7 +6,7 @@ window.onload = function() {
         Opponent: 2,
         Win: 3,
         Lose: 4,
-        Disconnected: 5
+        OpponentDisconnected: 5
     }
 
     var Game = new Phaser.Game(640, 704, Phaser.CANVAS, 'example', { preload: Preload, create: Create, update: Update });
@@ -55,6 +21,46 @@ window.onload = function() {
         backgroundColor: "#ffffff", wordWrapWidth: 640};
     var CurrentState = States.Offline;
 
+    class Connection {
+        constructor() {
+            this.queue = []
+            this.listener = null
+            this.ws = new WebSocket('ws://localhost:8999');
+            this.ws.onmessage = this.onMessage.bind(this);
+            this.ws.onerror = this.onError.bind(this);
+            this.ws.onopen = this.onOpen.bind(this);
+            this.ws.onclose = this.onClose.bind(this);
+        }
+
+        onMessage(message) {
+            const json = JSON.parse(message.data)
+            console.log(json)
+            if (this.listener !== null) {
+                this.listener(json)
+            }
+        };
+
+        onOpen() {
+            this.queue.forEach(item => this.write(item));
+        };
+
+        onError() {
+            console.log("Socket error");
+            CurrentState = States.Offline;
+        }
+
+        onClose() {
+            CurrentState = States.Offline;
+        }
+
+        write(data) {
+            if (this.ws.readyState === this.ws.CONNECTING) {
+                this.queue.push(data)
+            } else {
+                this.ws.send(JSON.stringify(data))
+            }
+        }
+    }
 
     function Preload() {
         Game.load.image('cell', 'cell.jpg');
@@ -68,7 +74,8 @@ window.onload = function() {
         tilesprite.inputEnabled = true;
         tilesprite.events.onInputDown.add(OnInputDown);
 
-        StatusText = Game.add.text(0, 0, "Status: ", TextStyle);
+        StatusText = Game.add.text(0, 0, "Status: No connection to server", TextStyle);
+        CurrentState = States.Offline;
 
         Cursors = Game.input.keyboard.createCursorKeys();
         ConnectionInstance = new Connection();
@@ -118,15 +125,18 @@ window.onload = function() {
                 CurrentState = States.Lose;
             }
         }
+        if (msg.action == "disconnected") {
+            CurrentState = States.OpponentDisconnected;
+        }
         if (msg.action == "close") {
-            CurrentState = States.Disconnected;
+            CurrentState = States.Offline;
         }
     }
 
     function Update() {
         Game.camera.setBoundsToWorld();
-        if (CurrentState == States.NoConnect) {
-            StatusText.setText("Status: Server is offline");
+        if (CurrentState == States.Offline) {
+            StatusText.setText("Status: No connection to server");
         }
         if (CurrentState == States.Waiting) {
             StatusText.setText("Status: Waiting for another player");
@@ -143,8 +153,8 @@ window.onload = function() {
         if (CurrentState == States.Lose) {
             StatusText.setText("Status: You lose!");
         }
-        if (CurrentState == States.Disconnected) {
-            StatusText.setText("Status: Opponent disconnected or internet connection is broken");
+        if (CurrentState == States.OpponentDisconnected) {
+            StatusText.setText("Status: Opponent disconnected");
         }
     }
 
