@@ -17,17 +17,17 @@ export class Board {
         this.positions.set(key, symbol);
     }
 
-    IsWinningTurn(x: number, y: number, symbol: number, length: number) : boolean {
+    IsWinningTurn(symbol: number, x: number, y: number, length: number) : boolean {
         const directions = [[0, 1], [1, 0], [1, 1], [-1, 1]];
         for (let [dx, dy] of directions) {
             let count = 1;
             let i = 1;
-            while (this.GetSymbol(i * dx, i * dy) == symbol) {
+            while (this.GetSymbol(x + i * dx, y + i * dy) == symbol) {
                 count += 1;
                 i += 1;
             }
             i = -1;
-            while (this.GetSymbol(i * dx, i * dy) == symbol) {
+            while (this.GetSymbol(x + i * dx, y + i * dy) == symbol) {
                 count += 1;
                 i -= 1;
             }

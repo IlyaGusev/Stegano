@@ -1,5 +1,6 @@
 import {Board} from './board'
 import {Player} from "./player";
+import {isBoolean} from "util";
 
 export class Move {
     constructor(public playerId: string, public x: number, public y:number) {}
@@ -31,20 +32,12 @@ export class Game {
 
     DoMove(playerId: string, x: number, y: number) {
         if (this.board.GetSymbol(x, y) != 0) {
-            for (let player of this.players) {
-                if (player.id == playerId ) {
-                    player.Write(JSON.stringify(new Message(this.id, player.id, "turn", x, y)));
-                }
-            }
             return;
         }
         this.moves.push(new Move(playerId, x, y));
         this.board.SetSymbol(x, y, this.playerSymbols.get(playerId) as number);
         for (let player of this.players) {
-            if (player.id == playerId ) {
-                continue;
-            }
-            player.Write(JSON.stringify(new Message(this.id, player.id, "move", x, y)));
+            player.Write(JSON.stringify(new Message(this.id, playerId, "move", x, y)));
         }
     }
 
@@ -64,6 +57,19 @@ export class Game {
                 return;
             }
             this.DoMove(message.playerId, message.x, message.y);
+            const currentSymbol = this.playerSymbols.get(message.playerId) as number;
+            const isWinningTurn = this.board.IsWinningTurn(currentSymbol, message.x, message.y, 5);
+            if (isWinningTurn) {
+                for (let player of this.players) {
+                    player.Write(JSON.stringify(new Message(this.id, message.playerId, "win")));
+                }
+            }
+        }
+    }
+
+    Terminate() {
+        for (let player of this.players) {
+            player.Write(JSON.stringify(new Message(this.id, player.id, "close")));
         }
     }
 

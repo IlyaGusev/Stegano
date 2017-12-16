@@ -34,6 +34,7 @@ window.onload = function() {
     }
 
     var States = {
+        Offline: -1,
         Waiting: 0,
         Turn: 1,
         Opponent: 2,
@@ -52,7 +53,7 @@ window.onload = function() {
     var StatusText = null;
     var TextStyle = {font: "20px Arial", fill: "#000000", wordWrap: true, align: "center",
         backgroundColor: "#ffffff", wordWrapWidth: 640};
-    var CurrentState = States.Waiting;
+    var CurrentState = States.Offline;
 
 
     function Preload() {
@@ -78,44 +79,72 @@ window.onload = function() {
         if (CurrentState == States.Turn) {
             var x = Game.input.x;
             var y = Game.input.y;
-            AddLabel(x, y, 64, "#ff0000");
+
             ConnectionInstance.write({
                 'gameId': GameId, 'playerId': PlayerId, action: 'move',
                 'x': Math.floor(x / 64), 'y': Math.floor(y / 64)
             })
-            CurrentState = States.Opponent;
         }
     }
 
     function Listen(json) {
         var msg = JSON.parse(json);
-        if( msg.action == "handshake") {
+        if (msg.action == "handshake") {
             GameId = msg.gameId;
             PlayerId = msg.playerId;
             CurrentState = States.Waiting;
         }
-        if( msg.action == "turn") {
+        if (msg.action == "turn") {
             CurrentState = States.Turn;
         }
-        if( msg.action == "opponent") {
+        if (msg.action == "opponent") {
             CurrentState = States.Opponent;
         }
-        if( msg.action == "move") {
-            AddLabel(msg.x * 64, msg.y * 64, 64, "#00ff00");
-            CurrentState = States.Turn;
+        if (msg.action == "move") {
+            var color = "#00ff00";
+            if( msg.playerId != PlayerId ) {
+                color = "#ff0000";
+                CurrentState = States.Turn;
+            } else {
+                color = "#0000ff";
+                CurrentState = States.Opponent;
+            }
+            AddLabel(msg.x * 64, msg.y * 64, 64, color);
+        }
+        if (msg.action == "win") {
+            if (msg.playerId == PlayerId) {
+                CurrentState = States.Win;
+            } else {
+                CurrentState = States.Lose;
+            }
+        }
+        if (msg.action == "close") {
+            CurrentState = States.Disconnected;
         }
     }
 
     function Update() {
         Game.camera.setBoundsToWorld();
-        if( CurrentState == States.Waiting) {
+        if (CurrentState == States.NoConnect) {
+            StatusText.setText("Status: Server is offline");
+        }
+        if (CurrentState == States.Waiting) {
             StatusText.setText("Status: Waiting for another player");
         }
-        if( CurrentState == States.Turn) {
+        if (CurrentState == States.Turn) {
             StatusText.setText("Status: Your turn");
         }
-        if( CurrentState == States.Opponent ) {
+        if (CurrentState == States.Opponent) {
             StatusText.setText("Status: Opponent turn");
+        }
+        if (CurrentState == States.Win) {
+            StatusText.setText("Status: You won!");
+        }
+        if (CurrentState == States.Lose) {
+            StatusText.setText("Status: You lose!");
+        }
+        if (CurrentState == States.Disconnected) {
+            StatusText.setText("Status: Opponent disconnected or internet connection is broken");
         }
     }
 

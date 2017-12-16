@@ -30,4 +30,12 @@ export class GameManager {
         }
         return freeGame;
     }
+
+    CloseGame(gameId: string) {
+        const game = this.GetGame(gameId);
+        if (game != undefined) {
+            game.Terminate();
+            this.games.delete(gameId);
+        }
+    }
 }
