@@ -1,5 +1,5 @@
 # Task 3 - multixo #
-*(пока 6 баллов)*
+*(пока 8 баллов)*
 
 #### Install ####
 ```
@@ -8,9 +8,12 @@ tsc
 ```
 
 #### Run ####
+Server:
 ```
 nodejs server/index.js
 ```
+
+Client: через client/index.html
 
 # Task 4.2 - stegano #
 *(10 баллов)*
